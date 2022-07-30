@@ -1,0 +1,159 @@
+﻿@using Microsoft.AspNetCore.Identity
+@model ToDoApplication.Models.ToDoListViewModel
+@inject SignInManager<IdentityUser> SignInManager
+@inject UserManager<IdentityUser> UserManager
+@{
+    ViewData["Title"] = "Home Page";
+}
+
+<div class="text-center">
+    <div id="app">
+        <modal v-if="showModal" v-on:close="showModal = false"></modal>
+        <div class="row">
+            <div class="display-4 text-end col-6">{{todoList.name}}</div>
+            <div class="col-2"><a :href="'Home/Edit/'+ todoList.id" class="float-start"><i class="fa fa-edit"></i></a></div>
+        </div>
+       <div class="row float-end pb-3">
+          <div>
+             <a :href="'/TodoItems/Create/'+todoList.id" class="btn btn-success">Add to do item</a>
+          </div>
+       </div>
+       <table class="table table-bordered datatable">
+          <thead>
+             <tr>
+                <th scope="col">#</th>
+                <th scope="col">Name</th>
+                <th scope="col">Description</th>
+                <th scope="col">Creation Date</th>
+                <th scope="col">Status</th>
+                <th></th>
+             </tr>
+          </thead>
+          <tbody v-for="(item, index) in todoList.toDoItems">
+             <tr>
+                <th scope="row">1</th>
+                <td>{{ item.name }}</td>
+                <td>{{ item.description }}</td>
+                <td>{{ item.createdDate }}</td>
+                <td>{{ item.status }}</td>
+                <td><span class="fa-stack w-auto"><i class="fa fa-edit link-success edit-icon-link px-3" v-on:click="edit(item)"></i><a :href="'/ToDoItems/Delete/'+ item.id" class="float-end"><i class="fa fa-trash link-danger edit-icon-link"></i></a></span></td>
+             </tr>
+          </tbody>
+       </table>
+    </div>
+</div>
+
+
+@section Scripts {
+     <!-- template for the modal component -->
+    <script type="text/x-template" id="modal-template">
+          <transition name="modal">
+                <div class="modal-mask">
+                       <div class="modal-dialog" role="document">            
+                            <div class="modal-content">
+                                <form>
+                              <div class="modal-header">
+                                <h5 class="modal-title" id="exampleModalLabel">{{$root.currentItem.name}}</h5>
+                                <button type="button" class="close" data-dismiss="modal" v-on:click="$emit('close')">
+                                  <span aria-hidden="true">&times;</span>
+                                </button>
+                              </div>
+                              <div class="modal-body">
+                                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                                    <input type="hidden" :value="$root.currentItem.id"/>
+                                    <div class="form-group">
+                                        <label asp-for="ToDoItemDto.Name" class="control-label"></label>
+                                        <input  class="form-control" v-model="$root.currentItem.name"/>
+                                        <span asp-validation-for="ToDoItemDto.Name" class="text-danger"></span>
+                                    </div>
+                                    <div class="form-group">
+                                        <label asp-for="ToDoItemDto.Description" class="control-label"></label>
+                                        <input class="form-control" v-model="$root.currentItem.description"/>
+                                        <span asp-validation-for="ToDoItemDto.Description" class="text-danger"></span>
+                                    </div>
+                                    <div class="form-group">
+                                         <label asp-for="ToDoItemDto.Status" class="control-label"></label>          
+                                        <select v-model="$root.currentItem.status" class="form-control">
+                                            <option v-for="(option, index) in $root.statuses" :key="option.value" :selected="option.value === $root.selected" :value="option.value">{{ option.text }}</option>
+                                        </select>
+                                        <span asp-validation-for="ToDoItemDto.Status" class="text-danger"></span>
+                                    </div>
+                              </div>
+                              <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" v-on:click="$emit('close')">Close</button>
+                                <button type="button" class="btn btn-primary" v-on:click="$root.postEdit($root.currentItem)">Save changes</button>
+                              </div>
+                              </form>
+                            </div>
+                        </div>
+                </div>
+          </transition>
+    </script>
+    <script>
+    Vue.component("modal", {
+        props: ['currentItemEdit'],
+        template: "#modal-template",
+
+    });
+
+    let app = new Vue({
+        el: '#app',
+        data: {
+            showModal: false,
+            currentItem: {},
+            selected: '',
+            statuses: [],
+            todoList: {
+                id: '@Model.ToDoList.Id',
+                name: '@Model.ToDoList.Name',
+                description: '@Model.ToDoList.Description',
+                toDoItems: []
+            }
+        },
+        methods: {
+
+            fetchItems() {
+                var path = "/api/TodoApi/" + this.todoList.id;
+                this.fetchJson(path, json => this.todoList.toDoItems = json);
+            },
+
+            fetchJson(path, collback) {
+                try {
+                    fetch(path, {
+                            mode: 'cors'
+                        })
+                        .then(response => response.json())
+                        .then(function(json) {
+                            collback(json);
+                        });
+                } catch (ex) {
+                    alert(ex);
+                }
+            },
+            edit(item) {
+                this.currentItem = item;
+                this.showModal = true;
+                this.selected = item.status;
+            },
+            postEdit(data) {
+
+                var jsonData = JSON.stringify(data);
+                const requestOptions = {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: jsonData
+                };
+                fetch("/api/TodoApi", requestOptions)
+                    .then(() => this.fetchItems());
+            }
+        },
+        mounted: function() {
+            let statuses_list = '@Html.Raw(Json.Serialize(Model.Statuses))';
+            this.statuses = JSON.parse(statuses_list);
+            this.fetchItems();
+        }
+    })
+    </script>
+}
